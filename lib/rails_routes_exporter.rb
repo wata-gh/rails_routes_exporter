@@ -14,6 +14,56 @@ class RailsRoutesExporter
   end
 
   def self.export(app_name)
+    exporter = RailsRoutesExporter.new(app_name)
+    content = exporter.create_routes
+    exporter.upload(content)
+  end
+
+  def self.dry_run(app_name)
+    exporter = RailsRoutesExporter.new(app_name)
+    current_content = exporter.download
+    content = exporter.create_routes
+    puts Diffy::Diff.new(current_content, content).to_s(:color)
+  end
+
+  def initialize(app_name)
+    @app_name = app_name
+  end
+
+  def key
+    @key ||= File.join(config.key_prefix, @app_name).to_s + '.route'
+  end
+
+  def download
+    log(:debug, 'downloading routes')
+    log(:debug, "bucket: #{config.bucket}")
+    log(:debug, "key: #{key}")
+
+    begin
+      s3.get_object(
+        bucket: config.bucket,
+        key: key,
+      ).body.read
+    rescue Aws::S3::Errors::NoSuchKey => e
+      log(:warn, "no routes file found. #{config.bucket}/#{key}")
+      ''
+    end
+  end
+
+  def upload(content)
+    log(:debug, 'uploading routes')
+    log(:debug, "bucket: #{config.bucket}")
+    log(:debug, "key: #{key}")
+    log(:debug, "content: #{content}")
+
+    s3.put_object(
+      bucket: config.bucket,
+      key: key,
+      body: content,
+    )
+  end
+
+  def create_routes
     routes = config.additional_routes
 
     unless config.use_only_defined_routes?
@@ -34,21 +84,16 @@ class RailsRoutesExporter
       routes.concat(dynamic_routes)
     end
 
-    content = routes.map { |route| route.join(' ') }.uniq.join("\n")
-
-    key = File.join(config.key_prefix, app_name).to_s + '.route'
-    log(:debug, "bucket: #{config.bucket}")
-    log(:debug, "key: #{key}")
-    log(:debug, "content: #{content}")
-
-    s3.put_object(
-      bucket: config.bucket,
-      key: key,
-      body: content,
-    )
+    routes.map { |route| route.join(' ') }.uniq.join("\n")
   end
 
-  def self.s3
+  private
+
+  def config
+    RailsRoutesExporter.config
+  end
+
+  def s3
     @s3 ||= Aws::S3::Client.new
   end
 
