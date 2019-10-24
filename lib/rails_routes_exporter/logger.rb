@@ -21,6 +21,12 @@ class RailsRoutesExporter
         base.extend(ClassMethods)
       end
 
+      def log(level, message)
+        message = "[#{level.to_s.upcase}] #{message}" unless level == :info
+        logger = RailsRoutesExporter::Logger.instance
+        logger.send(level, message)
+      end
+
       module ClassMethods
         def log(level, message)
           message = "[#{level.to_s.upcase}] #{message}" unless level == :info
