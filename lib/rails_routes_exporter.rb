@@ -1,5 +1,7 @@
 require 'rails_routes_exporter/version'
 require 'rails_routes_exporter/logger'
+require 'aws-sdk-s3'
+require 'diffy'
 
 class RailsRoutesExporter
   include Logger::ClientHelper
@@ -71,15 +73,17 @@ class RailsRoutesExporter
         wrapper = ActionDispatch::Routing::RouteWrapper.new(route)
         result = [wrapper.verb, wrapper.path]
 
+        result = config.handler.call(wrapper) if config.handler
+        next result unless result
+
         config.ignores.each do |ignore|
-          if wrapper.verb == ignore[0] && wrapper.path == ignore[1]
+          if result.first(2) == ignore && result.length == 2
             result.append('IGNORE')
           end
         end
 
-        result = config.handler.call(wrapper) if config.handler
         result
-      }.select { |r| r && r.first.present? }
+      }.compact.select { |r| r.first.present? }
 
       routes.concat(dynamic_routes)
     end
