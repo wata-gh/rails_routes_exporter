@@ -103,8 +103,8 @@ class RailsRoutesExporter
 
   class Configuration
     def initialize
-      @bucket = 'misc-internal.ap-northeast-1'
-      @key_prefix = 'mpdev-console/request_summaries'
+      @bucket = nil
+      @key_prefix = ''
       @ignores = []
       @additional_routes = []
     end
